@@ -3,9 +3,9 @@ spring:
     name: platform
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/interview_platform?options=-c%20TimeZone%3DUTC
-    username: postgres
-    password: Anju@123
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
