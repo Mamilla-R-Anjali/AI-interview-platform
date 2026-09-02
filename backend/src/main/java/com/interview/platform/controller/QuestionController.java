@@ -106,6 +106,11 @@ public class QuestionController {
         return ResponseEntity.ok(questions);
     }
 
+    @GetMapping
+        public List<Question> getAllQuestions() {
+            return questionRepository.findAll();
+        }
+
     // ==========================================
     // REQUEST BODY
     // ==========================================
