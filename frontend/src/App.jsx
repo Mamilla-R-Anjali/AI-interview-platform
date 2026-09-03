@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API_URL = "http://localhost:8080";
+const API_URL = "https://ai-interview-platform-production-a755.up.railway.app";
 
 const authInputStyle = {
   width: "100%",
