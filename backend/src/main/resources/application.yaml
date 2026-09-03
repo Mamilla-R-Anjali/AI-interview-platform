@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: platform
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/interview_platform?options=-c%20TimeZone%3DAsia%2FKolkata
+    username: interview_user
+    password: YourPassword123
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Kolkata
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: false
+      
