@@ -16,7 +16,13 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/answers")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = {
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:5176",
+    "https://lively-fenglis-415bea.netlify.app"
+})
 public class AnswerController {
 
     private final AnswerRepository answerRepository;
