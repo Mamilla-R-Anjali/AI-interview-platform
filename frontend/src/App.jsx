@@ -891,7 +891,6 @@ function App() {
       // =====================================================
       // QUESTION 5 = COMPLETE
       // =====================================================
-
       if (nextIndex >= 5) {
         console.log(
           "All 5 questions answered."
@@ -980,7 +979,6 @@ function App() {
       // =====================================================
       // NEXT QUESTION
       // =====================================================
-
       setCurrentQuestionIndex(
         nextIndex
       );
@@ -1608,7 +1606,6 @@ function App() {
   // =========================================================
   // LIVE INTERVIEW SCREEN
   // =========================================================
-
   if (started) {
     const currentQuestion =
       interviewQuestions[
