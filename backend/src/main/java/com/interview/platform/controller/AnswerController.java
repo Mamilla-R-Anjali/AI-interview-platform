@@ -21,7 +21,7 @@ import java.util.Map;
     "http://localhost:5174",
     "http://localhost:5175",
     "http://localhost:5176",
-    "https://lively-fenglis-415bea.netlify.app"
+    "https://lively-fenglisu-415bea.netlify.app"
 })
 public class AnswerController {
 
