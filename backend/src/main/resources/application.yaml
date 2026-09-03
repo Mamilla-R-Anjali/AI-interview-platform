@@ -3,10 +3,10 @@ spring:
     name: platform
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/interview_platform?options=-c%20TimeZone%3DAsia%2FKolkata
-    username: interview_user
-    password: YourPassword123
-    driver-class-name: org.postgresql.Driver
+  url: ${DATABASE_URL}
+  username: ${DATABASE_USERNAME}
+  password: ${DATABASE_PASSWORD}
+  driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
@@ -19,7 +19,7 @@ spring:
           time_zone: Asia/Kolkata
 
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 management:
   endpoints:
