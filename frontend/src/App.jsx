@@ -30,7 +30,7 @@ function App() {
   // =========================================================
 
   const [theme, setTheme] = useState(
-    localStorage.getItem("theme") || "dark"
+    localStorage.getItem("interviewLabTheme") || "dark"
   );
 
   useEffect(() => {
@@ -39,7 +39,7 @@ function App() {
       theme
     );
 
-    localStorage.setItem("theme", theme);
+    localStorage.setItem("interviewLabTheme", theme);
   }, [theme]);
 
   const toggleTheme = () => {
@@ -110,8 +110,8 @@ function App() {
       onClick={toggleTheme}
     >
       {theme === "dark"
-        ? "☀️ Light Mode"
-        : "🌙 Dark Mode"}
+        ? "\u2600\uFE0F Light Mode"
+        : "\u263D Dark Mode"}
     </button>
   );
 
@@ -1091,18 +1091,18 @@ function App() {
     const numericScore = Number(score) || 0;
 
     if (numericScore >= 80) {
-      return `🟢 ${numericScore}/100 — Excellent`;
+      return `ðŸŸ¢ ${numericScore}/100 â€” Excellent`;
     }
 
     if (numericScore >= 60) {
-      return `🔵 ${numericScore}/100 — Good`;
+      return `ðŸ”µ ${numericScore}/100 â€” Good`;
     }
 
     if (numericScore >= 40) {
-      return `🟠 ${numericScore}/100 — Needs Improvement`;
+      return `ðŸŸ  ${numericScore}/100 â€” Needs Improvement`;
     }
 
-    return `🔴 Below 40 — Needs Significant Improvement`;
+    return `ðŸ”´ Below 40 â€” Needs Significant Improvement`;
   };
 
   
@@ -1240,132 +1240,113 @@ function App() {
   if (!isLoggedIn) {
     return (
       <div className="app auth-page">
-        <main className="auth-shell">
-          <div className="auth-theme-toggle">
-            <ThemeToggle />
-          </div>
+        <div className="auth-theme-corner">
+          <ThemeToggle />
+        </div>
 
-          <section className="auth-showcase">
-            <div>
-              <p className="eyebrow">TECHNICAL INTERVIEW PRACTICE</p>
+        <main className="auth-layout">
+          <section className="auth-showcase" aria-label="InterviewLab introduction">
+            <p className="eyebrow auth-showcase-eyebrow">
+              TECHNICAL INTERVIEW PRACTICE
+            </p>
 
-              <h1 className="auth-showcase-title">
-                Practice smarter.
-                <span> Interview with confidence.</span>
-              </h1>
+            <h1 className="auth-showcase-title">
+              <span>Practice smarter.</span>
+              <span className="auth-showcase-muted">Interview with confidence.</span>
+            </h1>
 
-              <p className="auth-showcase-text">
-                Prepare with structured technical interviews, instant evaluation,
-                detailed feedback, and progress tracking across every attempt.
-              </p>
-            </div>
+            <p className="auth-showcase-copy">
+              Practice structured technical interviews, review your answers,
+              and build confidence with every attempt.
+            </p>
 
             <div className="auth-feature-grid">
               <div className="auth-feature-card">
                 <strong>5</strong>
-                <span>Focused questions per interview</span>
+                <span>Questions</span>
               </div>
-
               <div className="auth-feature-card">
                 <strong>AI</strong>
-                <span>Answer scoring and feedback</span>
+                <span>Feedback</span>
               </div>
-
               <div className="auth-feature-card">
                 <strong>100</strong>
-                <span>Clear performance score</span>
+                <span>Score</span>
               </div>
             </div>
 
-            <p className="auth-showcase-note">
-              Practice â€¢ Review â€¢ Improve
+            <p className="auth-showcase-footer">
+              PRACTICE {"\u2022"} REVIEW {"\u2022"} IMPROVE
             </p>
           </section>
 
-          <section className="auth-card">
-            <div className="auth-card-heading">
-              <div className="logo">
-                AI<span>Interview</span>
+          <section className="auth-card auth-workspace-card">
+            <div className="auth-card-head">
+              <div className="logo auth-logo">
+                Interview<span>Lab</span>
               </div>
 
-              <p className="eyebrow auth-eyebrow">
-                AI-POWERED INTERVIEW PLATFORM
+              <p className="eyebrow auth-workspace-eyebrow">
+                TECHNICAL INTERVIEW WORKSPACE
               </p>
 
-              <h1 className="auth-title">
-                {authMode === "login"
-                  ? "Welcome Back"
-                  : "Create Account"}
-              </h1>
+              <h2>
+                {authMode === "login" ? "Welcome Back" : "Create Account"}
+              </h2>
 
-              <p className="hero-text auth-subtitle">
+              <p className="auth-card-copy">
                 {authMode === "login"
                   ? "Login to continue your interview practice."
                   : "Register to start your interview practice."}
               </p>
             </div>
 
-            <form onSubmit={handleAuth}>
+            <form className="auth-form" onSubmit={handleAuth}>
               {authMode === "register" && (
                 <input
+                  className="auth-input"
                   type="text"
                   placeholder="Name"
                   value={authName}
-                  onChange={(e) =>
-                    setAuthName(e.target.value)
-                  }
+                  onChange={(e) => setAuthName(e.target.value)}
                   required
-                  style={authInputStyle}
                 />
               )}
 
               <input
+                className="auth-input"
                 type="email"
                 placeholder="Email"
                 value={authEmail}
-                onChange={(e) =>
-                  setAuthEmail(e.target.value)
-                }
+                onChange={(e) => setAuthEmail(e.target.value)}
                 required
-                style={authInputStyle}
               />
 
               <input
+                className="auth-input"
                 type="password"
                 placeholder="Password"
                 value={authPassword}
-                onChange={(e) =>
-                  setAuthPassword(e.target.value)
-                }
+                onChange={(e) => setAuthPassword(e.target.value)}
                 required
-                style={authInputStyle}
               />
 
               {authMode === "register" && (
                 <input
+                  className="auth-input"
                   type="password"
                   placeholder="Confirm Password"
                   value={authConfirmPassword}
-                  onChange={(e) =>
-                    setAuthConfirmPassword(
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => setAuthConfirmPassword(e.target.value)}
                   required
-                  style={authInputStyle}
                 />
               )}
 
-              {authError && (
-                <p className="auth-error">
-                  {authError}
-                </p>
-              )}
+              {authError && <p className="auth-error">{authError}</p>}
 
               <button
                 type="submit"
-                className="primary-button"
-                style={{ width: "100%" }}
+                className="primary-button auth-submit"
                 disabled={authLoading}
               >
                 {authLoading
@@ -1376,7 +1357,7 @@ function App() {
               </button>
             </form>
 
-            <div className="auth-switch">
+            <div className="auth-switch-row">
               {authMode === "login" ? (
                 <p>
                   Don't have an account?{" "}
@@ -1386,7 +1367,7 @@ function App() {
                       setAuthMode("register");
                       setAuthError("");
                     }}
-                    style={authLinkStyle}
+                    className="auth-switch-button"
                   >
                     Register
                   </button>
@@ -1400,7 +1381,7 @@ function App() {
                       setAuthMode("login");
                       setAuthError("");
                     }}
-                    style={authLinkStyle}
+                    className="auth-switch-button"
                   >
                     Login
                   </button>
@@ -1412,6 +1393,7 @@ function App() {
       </div>
     );
   }
+
   // =========================================================
   // COMPLETED SCREEN
   // =========================================================
@@ -1421,7 +1403,7 @@ function App() {
       <div className="app">
         <header className="navbar">
           <div className="logo">
-            AI<span>Interview</span>
+            Interview<span>Lab</span>
           </div>
 
           <div className="navbar-actions">
@@ -1443,7 +1425,7 @@ function App() {
             </p>
 
             <h1>
-              Great job! 🎉
+              Great job! ðŸŽ‰
             </h1>
 
             <p className="hero-text">
@@ -1580,7 +1562,7 @@ function App() {
       <div className="app results-page">
         <header className="navbar">
           <div className="logo">
-            AI<span>Interview</span>
+            Interview<span>Lab</span>
           </div>
 
           <div className="navbar-actions">
@@ -1612,7 +1594,7 @@ function App() {
             </p>
 
             <div className="results-date">
-              🕐{" "}
+              ðŸ•{" "}
               {formatDateTime(interview)}
             </div>
 
@@ -1761,7 +1743,7 @@ function App() {
       <div className="app">
         <header className="navbar">
           <div className="logo">
-            AI<span>Interview</span>
+            Interview<span>Lab</span>
           </div>
 
           <div className="navbar-actions">
@@ -1792,16 +1774,11 @@ function App() {
             </p>
 
             <div className="interview-rules">
-              <strong>Interview Rules</strong>
-
+              <strong>Interview rules:</strong>
               <p>
-                Answer each question in your own words.
-                Copying and pasting is not allowed.
-                Switching away from the interview tab will terminate the attempt.
+                Answer in your own words {"\u2022"} Paste disabled {"\u2022"} Leaving this tab ends the interview
               </p>
-            </div>
-
-            <div className="question-card">
+            </div>            <div className="question-card">
               <div className="question-number">
                 {currentQuestionIndex + 1}
               </div>
@@ -1846,7 +1823,7 @@ function App() {
                     ? "Submitting..."
                     : currentQuestionIndex + 1 >= 5
                     ? "Submit Final Answer"
-                    : "Submit Answer →"}
+                    : "Submit Answer â†’"}
                 </button>
               </div>
             </div>
@@ -1897,10 +1874,30 @@ function App() {
       ? completedInterviews[0]
       : null;
 
+  const averageCompletedScore =
+    completedInterviews.length > 0
+      ? Math.round(
+          completedInterviews.reduce(
+            (sum, interview) => sum + (Number(interview.finalScore) || 0),
+            0
+          ) / completedInterviews.length
+        )
+      : null;
   const totalInterviews = sortedInterviews.length;
 
   const completedInterviewCount =
     completedInterviews.length;
+
+  const averageScore =
+    completedInterviews.length > 0
+      ? Math.round(
+          completedInterviews.reduce(
+            (sum, interview) =>
+              sum + (Number(interview.finalScore) || 0),
+            0
+          ) / completedInterviews.length
+        )
+      : 0;
   // =========================================================
   // DASHBOARD
   // =========================================================
@@ -1909,7 +1906,7 @@ function App() {
     <div className="app">
       <header className="navbar">
         <div className="logo">
-          AI<span>Interview</span>
+          Interview<span>Lab</span>
         </div>
 
         <nav>
@@ -1935,7 +1932,7 @@ function App() {
           >
             {localStorage.getItem("userName") ||
               "User"}{" "}
-            · Logout
+            Â· Logout
           </button>
         </div>
       </header>
@@ -2004,11 +2001,20 @@ function App() {
             </div>
 
             <div className="card-line">
+              <span>Average Score</span>
+              <strong>
+                {completedInterviewCount > 0
+                  ? `${averageScore} / 100`
+                  : "-"}
+              </strong>
+            </div>
+
+            <div className="card-line">
               <span>Latest Score</span>
               <strong>
                 {lastCompletedInterview
                   ? `${lastCompletedInterview.finalScore} / 100`
-                  : "â€”"}
+                  : "Ã¢â‚¬â€"}
               </strong>
             </div>
 
@@ -2086,7 +2092,7 @@ function App() {
                     </p>
 
                     <div className="interview-date">
-                      🕐{" "}
+                      ðŸ•{" "}
                       {formatDateTime(
                         interview
                       )}
@@ -2136,8 +2142,8 @@ function App() {
                             )
                       }
                     >
-                      {(interview.status === "COMPLETED" || interview.status === "TERMINATED") ? "View Results →"
-                        : "Open Interview →"}
+                      {(interview.status === "COMPLETED" || interview.status === "TERMINATED") ? "View Results â†’"
+                        : "Open Interview â†’"}
                     </button>
 
                     <button
@@ -2148,7 +2154,7 @@ function App() {
                         )
                       }
                     >
-                      🗑️ Delete
+                      ðŸ—‘ï¸ Delete
                     </button>
                   </div>
                 )
@@ -2232,7 +2238,7 @@ function App() {
 
       <footer>
         <p>
-          © 2026 AI Interview Platform
+          &copy; 2026 InterviewLab
         </p>
 
         <p>
