@@ -3,19 +3,30 @@ package com.interview.platform.controller;
 import com.interview.platform.model.Answer;
 import com.interview.platform.model.Interview;
 import com.interview.platform.model.Question;
+import com.interview.platform.model.User;
+
 import com.interview.platform.repository.AnswerRepository;
 import com.interview.platform.repository.InterviewRepository;
 import com.interview.platform.repository.QuestionRepository;
 import com.interview.platform.repository.UserRepository;
 
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
+
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+
 import java.util.function.Function;
+
 import java.util.stream.Collectors;
 
 @RestController
@@ -23,548 +34,652 @@ import java.util.stream.Collectors;
 public class InterviewController {
 
     private final InterviewRepository interviewRepository;
+
     private final UserRepository userRepository;
+
     private final AnswerRepository answerRepository;
+
     private final QuestionRepository questionRepository;
 
     public InterviewController(
             InterviewRepository interviewRepository,
             UserRepository userRepository,
             AnswerRepository answerRepository,
-            QuestionRepository questionRepository) {
+            QuestionRepository questionRepository
+    ) {
 
-        this.interviewRepository = interviewRepository;
-        this.userRepository = userRepository;
-        this.answerRepository = answerRepository;
-        this.questionRepository = questionRepository;
+        this.interviewRepository =
+                interviewRepository;
+
+        this.userRepository =
+                userRepository;
+
+        this.answerRepository =
+                answerRepository;
+
+        this.questionRepository =
+                questionRepository;
     }
 
-    // CREATE NEW INTERVIEW
     @PostMapping
     @Transactional
     public ResponseEntity<?> createInterview(
-            @RequestBody InterviewRequest request) {
+            @RequestBody InterviewRequest request,
+            Principal principal
+    ) {
 
-        if (request.userId() == null) {
-            return ResponseEntity.badRequest()
-                    .body("User ID cannot be null.");
+        User user =
+                authenticatedUser(
+                        principal
+                );
+
+        if (user == null) {
+
+            return ResponseEntity
+                    .status(401)
+                    .body(
+                            "Authenticated user not found."
+                    );
         }
 
-        return userRepository.findById(request.userId())
-                .map(user -> {
+        Interview interview =
+                new Interview(
+                        request.title() == null
+                                ? "Java Developer Interview"
+                                : request.title(),
 
-                    Interview interview = new Interview(
-                            request.title(),
-                            request.role(),
-                            request.status(),
-                            user
+                        request.role() == null
+                                ? "Software Engineer"
+                                : request.role(),
+
+                        "IN_PROGRESS",
+
+                        user
+                );
+
+        Interview savedInterview =
+                interviewRepository.save(
+                        interview
+                );
+
+        List<Question> sourceQuestions =
+                questionRepository
+                        .findAll()
+                        .stream()
+                        .limit(10)
+                        .toList();
+
+        for (Question source :
+                sourceQuestions) {
+
+            Question copy =
+                    new Question(
+                            source.getQuestionText(),
+                            source.getExpectedAnswer(),
+                            savedInterview
                     );
 
-                    Interview savedInterview =
-                            interviewRepository.save(interview);
-
-                    // Every interview has 10 questions.
-                    List<Question> existingQuestions =
-                            questionRepository.findAll();
-
-                    existingQuestions.stream()
-                            .limit(10)
-                            .forEach(oldQuestion -> {
-
-                                Question newQuestion =
-                                        new Question(
-                                                oldQuestion.getQuestionText(),
-                                                oldQuestion.getExpectedAnswer(),
-                                                savedInterview
-                                        );
-
-                                questionRepository.save(newQuestion);
-                            });
-
-                    return ResponseEntity.ok(savedInterview);
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    // GET ONLY THE LOGGED-IN USER'S INTERVIEWS
-    @GetMapping
-    public ResponseEntity<?> getInterviews(
-            @RequestParam Long userId) {
-
-        if (userId == null) {
-            return ResponseEntity.badRequest()
-                    .body("User ID is required.");
+            questionRepository.save(
+                    copy
+            );
         }
 
-        return userRepository.findById(userId)
-                .map(user -> {
-
-                    List<Interview> userInterviews =
-                            interviewRepository.findAll()
-                                    .stream()
-                                    .filter(interview ->
-                                            interview.getUser() != null
-                                                    && interview.getUser().getId() != null
-                                                    && userId.equals(
-                                                            interview.getUser().getId()
-                                                    )
-                                    )
-                                    .toList();
-
-                    return ResponseEntity.ok(userInterviews);
-                })
-                .orElse(
-                        ResponseEntity.notFound().build()
-                );
+        return ResponseEntity.ok(
+                savedInterview
+        );
     }
 
-    // GET INTERVIEW RESULTS
+    @GetMapping
+    public ResponseEntity<?> getInterviews(
+            @RequestParam(required = false)
+            Long userId,
+            Principal principal
+    ) {
+
+        User user =
+                authenticatedUser(
+                        principal
+                );
+
+        if (user == null) {
+
+            return ResponseEntity
+                    .status(401)
+                    .body(
+                            "Authenticated user not found."
+                    );
+        }
+
+        List<Interview> interviews =
+                interviewRepository
+                        .findAll()
+                        .stream()
+                        .filter(interview ->
+                                interview.getUser() != null &&
+
+                                Objects.equals(
+                                        interview
+                                                .getUser()
+                                                .getId(),
+
+                                        user.getId()
+                                )
+                        )
+                        .sorted(
+                                Comparator
+                                        .comparing(
+                                                Interview::getCreatedAt
+                                        )
+                                        .reversed()
+                        )
+                        .toList();
+
+        return ResponseEntity.ok(
+                interviews
+        );
+    }
+
     @GetMapping("/{interviewId}/results")
     @Transactional(readOnly = true)
     public ResponseEntity<?> getInterviewResults(
-            @PathVariable Long interviewId) {
+            @PathVariable Long interviewId,
+            Principal principal
+    ) {
 
-        return interviewRepository.findById(interviewId)
-                .map(interview -> {
+        Interview interview =
+                interviewRepository
+                        .findById(
+                                interviewId
+                        )
+                        .orElse(null);
 
-                    List<Question> questions =
-                            questionRepository.findByInterviewId(interviewId);
+        if (interview == null) {
 
-                    List<Answer> allAnswers =
-                            answerRepository.findByQuestionInterviewId(
-                                    interviewId
-                            );
+            return ResponseEntity
+                    .notFound()
+                    .build();
+        }
 
-                    Map<Long, Answer> latestAnswerByQuestion =
-                            allAnswers.stream()
-                                    .filter(answer -> answer != null)
-                                    .filter(answer -> answer.getQuestion() != null)
-                                    .filter(answer -> answer.getQuestion().getId() != null)
-                                    .filter(answer -> answer.getId() != null)
-                                    .collect(
-                                            Collectors.toMap(
-                                                    answer ->
-                                                            answer.getQuestion().getId(),
-                                                    Function.identity(),
-                                                    (answer1, answer2) ->
-                                                            answer1.getId() > answer2.getId()
-                                                                    ? answer1
-                                                                    : answer2
-                                            )
-                                    );
+        if (!owns(
+                interview,
+                principal
+        )) {
 
-                    /*
-                     * IMPORTANT:
-                     * Sort questions according to Answer ID.
-                     *
-                     * Answer ID order represents the order in which
-                     * answers were submitted.
-                     */
-                    List<Question> answeredQuestions =
-                            questions.stream()
-                                    .filter(question ->
-                                            latestAnswerByQuestion.containsKey(
-                                                    question.getId()
-                                            ))
-                                    .sorted(
-                                            Comparator.comparing(
-                                                    question ->
-                                                            latestAnswerByQuestion
-                                                                    .get(question.getId())
-                                                                    .getId()
-                                            )
-                                    )
-                                    .limit(5)
-                                    .toList();
+            return ResponseEntity
+                    .status(403)
+                    .body(
+                            "Forbidden"
+                    );
+        }
 
-                    List<Map<String, Object>> results =
-                            answeredQuestions.stream()
-                                    .map(question -> {
+        Map<Long, Answer> latest =
+                latestAnswersByQuestion(
+                        answerRepository
+                                .findByQuestionInterviewId(
+                                        interviewId
+                                )
+                );
 
-                                        Answer answer =
-                                                latestAnswerByQuestion.get(
-                                                        question.getId()
-                                                );
+        List<Answer> orderedAnswers =
+                latest.values()
+                        .stream()
+                        .sorted(
+                                Comparator.comparing(
+                                        Answer::getId
+                                )
+                        )
+                        .limit(5)
+                        .toList();
 
-                                        Map<String, Object> result =
-                                                new java.util.HashMap<>();
+        List<Map<String, Object>> results =
+                new ArrayList<>();
 
-                                        result.put(
-                                                "questionId",
-                                                question.getId()
-                                        );
+        for (Answer answer :
+                orderedAnswers) {
 
-                                        result.put(
-                                                "question",
-                                                question.getQuestionText()
-                                        );
+            Map<String, Object> result =
+                    new LinkedHashMap<>();
 
-                                        result.put(
-                                                "answer",
-                                                answer.getAnswerText() == null
-                                                        ? ""
-                                                        : answer.getAnswerText()
-                                        );
+            result.put(
+                    "questionId",
+                    answer.getQuestion()
+                            .getId()
+            );
 
-                                        result.put(
-                                                "answerText",
-                                                answer.getAnswerText() == null
-                                                        ? ""
-                                                        : answer.getAnswerText()
-                                        );
+            result.put(
+                    "question",
+                    answer.getQuestion()
+                            .getQuestionText()
+            );
 
-                                        result.put(
-                                                "score",
-                                                answer.getScore() == null
-                                                        ? 0
-                                                        : answer.getScore()
-                                        );
+            result.put(
+                    "questionText",
+                    answer.getQuestion()
+                            .getQuestionText()
+            );
 
-                                        result.put(
-                                                "feedback",
-                                                answer.getFeedback() == null
-                                                        ? "No feedback available."
-                                                        : answer.getFeedback()
-                                        );
+            result.put(
+                    "answer",
+                    answer.getAnswerText() == null
+                            ? ""
+                            : answer.getAnswerText()
+            );
 
-                                        return result;
-                                    })
-                                    .toList();
+            result.put(
+                    "answerText",
+                    answer.getAnswerText() == null
+                            ? ""
+                            : answer.getAnswerText()
+            );
 
-                    return ResponseEntity.ok(results);
+            result.put(
+                    "score",
+                    answer.getScore() == null
+                            ? 0
+                            : answer.getScore()
+            );
 
-                })
-                .orElse(ResponseEntity.notFound().build());
+            result.put(
+                    "feedback",
+                    answer.getFeedback() == null
+                            ? "No feedback available."
+                            : answer.getFeedback()
+            );
+
+            results.add(
+                    result
+            );
+        }
+
+        return ResponseEntity.ok(
+                results
+        );
     }
 
-    // DELETE INTERVIEW
     @DeleteMapping("/{interviewId}")
     @Transactional
     public ResponseEntity<?> deleteInterview(
-            @PathVariable Long interviewId) {
+            @PathVariable Long interviewId,
+            Principal principal
+    ) {
 
-        return interviewRepository.findById(interviewId)
-                .map(interview -> {
+        Interview interview =
+                interviewRepository
+                        .findById(
+                                interviewId
+                        )
+                        .orElse(null);
 
-                    List<Answer> answers =
-                            answerRepository.findByQuestionInterviewId(
-                                    interviewId
-                            );
+        if (interview == null) {
 
-                    if (!answers.isEmpty()) {
-                        answerRepository.deleteAll(answers);
-                    }
+            return ResponseEntity
+                    .notFound()
+                    .build();
+        }
 
-                    List<Question> questions =
-                            questionRepository.findByInterviewId(
-                                    interviewId
-                            );
+        if (!owns(
+                interview,
+                principal
+        )) {
 
-                    if (!questions.isEmpty()) {
-                        questionRepository.deleteAll(questions);
-                    }
-
-                    interviewRepository.delete(interview);
-
-                    return ResponseEntity.ok(
-                            "Interview deleted successfully."
+            return ResponseEntity
+                    .status(403)
+                    .body(
+                            "Forbidden"
                     );
-                })
-                .orElse(
-                        ResponseEntity.notFound().build()
-                );
+        }
+
+        List<Answer> answers =
+                answerRepository
+                        .findByQuestionInterviewId(
+                                interviewId
+                        );
+
+        if (!answers.isEmpty()) {
+
+            answerRepository.deleteAll(
+                    answers
+            );
+        }
+
+        List<Question> questions =
+                questionRepository
+                        .findByInterviewId(
+                                interviewId
+                        );
+
+        if (!questions.isEmpty()) {
+
+            questionRepository.deleteAll(
+                    questions
+            );
+        }
+
+        interviewRepository.delete(
+                interview
+        );
+
+        return ResponseEntity.ok(
+                "Interview deleted successfully."
+        );
     }
 
-    // COMPLETE INTERVIEW
     @PostMapping("/{interviewId}/complete")
     @Transactional
     public ResponseEntity<?> completeInterview(
             @PathVariable Long interviewId,
+
             @RequestBody(required = false)
-            CompleteInterviewRequest request) {
+            CompleteInterviewRequest request,
 
-        return interviewRepository.findById(interviewId)
-                .map(interview -> {
+            Principal principal
+    ) {
 
-                    List<Answer> allAnswers =
-                            answerRepository.findByQuestionInterviewId(
-                                    interviewId
-                            );
+        Interview interview =
+                interviewRepository
+                        .findById(
+                                interviewId
+                        )
+                        .orElse(null);
 
-                    if (allAnswers.isEmpty()) {
-                        return ResponseEntity.badRequest()
-                                .body("No answers found for this interview.");
-                    }
+        if (interview == null) {
 
-                    /*
-                     * The frontend sends the EXACT 5 question IDs
-                     * used during the live interview.
-                     */
-                    List<Long> questionIds;
+            return ResponseEntity
+                    .notFound()
+                    .build();
+        }
 
-                    if (request != null
-                            && request.questionIds() != null
-                            && !request.questionIds().isEmpty()) {
+        if (!owns(
+                interview,
+                principal
+        )) {
 
-                        questionIds =
-                                request.questionIds();
-
-                    } else {
-
-                        /*
-                         * Fallback:
-                         * Find the latest answer for every question,
-                         * then use the newest 5 questions.
-                         */
-                        Map<Long, Answer> latestAnswerByQuestion =
-                                allAnswers.stream()
-                                        .filter(answer -> answer != null)
-                                        .filter(answer -> answer.getQuestion() != null)
-                                        .filter(answer ->
-                                                answer.getQuestion().getId() != null)
-                                        .filter(answer ->
-                                                answer.getId() != null)
-                                        .collect(
-                                                Collectors.toMap(
-                                                        answer ->
-                                                                answer.getQuestion().getId(),
-                                                        Function.identity(),
-                                                        (answer1, answer2) ->
-                                                                answer1.getId()
-                                                                        > answer2.getId()
-                                                                        ? answer1
-                                                                        : answer2
-                                                )
-                                        );
-
-                        questionIds =
-                                latestAnswerByQuestion.values()
-                                        .stream()
-                                        .sorted(
-                                                Comparator.comparing(
-                                                        Answer::getId
-                                                ).reversed()
-                                        )
-                                        .limit(5)
-                                        .map(answer ->
-                                                answer.getQuestion().getId()
-                                        )
-                                        .toList();
-                    }
-
-                    /*
-                     * A live interview MUST contain exactly 5 questions.
-                     */
-                    if (questionIds.size() < 5) {
-
-                        return ResponseEntity.status(400)
-                                .body(
-                                        "Interview requires 5 answered questions. Only "
-                                                + questionIds.size()
-                                                + " were found."
-                                );
-                    }
-
-                    /*
-                     * Always process exactly 5.
-                     */
-                    questionIds =
-                            questionIds.stream()
-                                    .limit(5)
-                                    .toList();
-
-                    final List<Long> selectedQuestionIds =
-                            questionIds;
-
-                    /*
-                     * Get answers belonging ONLY to these 5 questions.
-                     */
-                    List<Answer> attemptAnswers =
-                            allAnswers.stream()
-                                    .filter(answer -> answer != null)
-                                    .filter(answer -> answer.getQuestion() != null)
-                                    .filter(answer ->
-                                            answer.getQuestion().getId() != null)
-                                    .filter(answer ->
-                                            answer.getId() != null)
-                                    .filter(answer ->
-                                            selectedQuestionIds.contains(
-                                                    answer.getQuestion().getId()
-                                            ))
-                                    .toList();
-
-                    /*
-                     * If a question has multiple submitted answers,
-                     * use ONLY the newest answer.
-                     */
-                    Map<Long, Answer> latestAnswersByQuestion =
-                            attemptAnswers.stream()
-                                    .collect(
-                                            Collectors.toMap(
-                                                    answer ->
-                                                            answer.getQuestion().getId(),
-                                                    Function.identity(),
-                                                    (answer1, answer2) ->
-                                                            answer1.getId()
-                                                                    > answer2.getId()
-                                                                    ? answer1
-                                                                    : answer2
-                                            )
-                                    );
-
-                    /*
-                     * Get exactly one latest answer per selected question.
-                     */
-                    List<Answer> latestAnswers =
-                            selectedQuestionIds.stream()
-                                    .map(latestAnswersByQuestion::get)
-                                    .filter(answer -> answer != null)
-                                    .toList();
-
-                    /*
-                     * We need exactly 5 answers.
-                     */
-                    if (latestAnswers.size() < 5) {
-
-                        return ResponseEntity.status(202)
-                                .body(
-                                        "Some answers are still being evaluated. "
-                                                + "Please wait a few seconds and try again."
-                                );
-                    }
-
-                    /*
-                     * Check that AI evaluation has finished.
-                     */
-                    List<Answer> processingAnswers =
-                            latestAnswers.stream()
-                                    .filter(this::isProcessing)
-                                    .toList();
-
-                    if (!processingAnswers.isEmpty()) {
-
-                        return ResponseEntity.status(202)
-                                .body(
-                                        "AI evaluation is still processing. "
-                                                + "Please wait a few seconds and try again."
-                                );
-                    }
-
-                    /*
-                     * Make sure all 5 have valid scores.
-                     */
-                    List<Answer> scoredAnswers =
-                            latestAnswers.stream()
-                                    .filter(answer ->
-                                            answer.getScore() != null)
-                                    .filter(answer ->
-                                            !isProcessing(answer))
-                                    .toList();
-
-                    if (scoredAnswers.size() < 5) {
-
-                        return ResponseEntity.status(202)
-                                .body(
-                                        "Some answers are still being evaluated. "
-                                                + "Please wait a few seconds and try again."
-                                );
-                    }
-
-                    /*
-                     * Calculate the final score from EXACTLY these 5 answers.
-                     */
-                    int totalScore =
-                            scoredAnswers.stream()
-                                    .mapToInt(Answer::getScore)
-                                    .sum();
-
-                    int finalScore =
-                            Math.round(
-                                    (float) totalScore / 5
-                            );
-
-                    System.out.println(
-                            "========================================"
+            return ResponseEntity
+                    .status(403)
+                    .body(
+                            "Forbidden"
                     );
+        }
 
-                    System.out.println(
-                            "COMPLETING INTERVIEW"
-                    );
-
-                    System.out.println(
-                            "Interview ID: " + interviewId
-                    );
-
-                    System.out.println(
-                            "Question IDs: " + selectedQuestionIds
-                    );
-
-                    System.out.println(
-                            "Number of answers: " + scoredAnswers.size()
-                    );
-
-                    System.out.println(
-                            "Total score: " + totalScore
-                    );
-
-                    System.out.println(
-                            "Final score: " + finalScore
-                    );
-
-                    for (Answer answer : scoredAnswers) {
-
-                        System.out.println(
-                                "Question ID: "
-                                        + answer.getQuestion().getId()
-                                        + " | Score: "
-                                        + answer.getScore()
+        List<Long> questionIds =
+                request == null
+                        ? List.of()
+                        : safeQuestionIds(
+                                request.questionIds()
                         );
-                    }
 
-                    System.out.println(
-                            "========================================"
+        if (questionIds.size() != 5) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            "Exactly 5 question IDs are required."
+                    );
+        }
+
+        Map<Long, Answer> latest =
+                latestAnswersByQuestion(
+                        answerRepository
+                                .findByQuestionInterviewId(
+                                        interviewId
+                                )
+                );
+
+        int totalScore = 0;
+
+        for (Long questionId :
+                questionIds) {
+
+            Answer answer =
+                    latest.get(
+                            questionId
                     );
 
-                    /*
-                     * SAVE FINAL SCORE TO DATABASE.
-                     */
-                    interview.setFinalScore(finalScore);
-                    interview.setStatus("COMPLETED");
+            if (answer == null ||
+                    answer.getScore() == null) {
 
-                    Interview savedInterview =
-                            interviewRepository.save(interview);
+                return ResponseEntity
+                        .status(202)
+                        .body(
+                                "Some answers are still being evaluated."
+                        );
+            }
 
-                    /*
-                     * Return the saved interview.
-                     */
-                    return ResponseEntity.ok(savedInterview);
+            totalScore +=
+                    answer.getScore();
+        }
 
-                })
-                .orElse(
-                        ResponseEntity.notFound().build()
+        int finalScore =
+                Math.round(
+                        (float) totalScore / 5
+                );
+
+        interview.setFinalScore(
+                finalScore
+        );
+
+        interview.setStatus(
+                "COMPLETED"
+        );
+
+        Interview saved =
+                interviewRepository.save(
+                        interview
+                );
+
+        return ResponseEntity.ok(
+                saved
+        );
+    }
+
+    @PostMapping("/{interviewId}/terminate")
+    @Transactional
+    public ResponseEntity<?> terminateInterview(
+            @PathVariable Long interviewId,
+
+            @RequestBody(required = false)
+            TerminateInterviewRequest request,
+
+            Principal principal
+    ) {
+
+        Interview interview =
+                interviewRepository
+                        .findById(
+                                interviewId
+                        )
+                        .orElse(null);
+
+        if (interview == null) {
+
+            return ResponseEntity
+                    .notFound()
+                    .build();
+        }
+
+        if (!owns(
+                interview,
+                principal
+        )) {
+
+            return ResponseEntity
+                    .status(403)
+                    .body(
+                            "Forbidden"
+                    );
+        }
+
+        if ("COMPLETED".equalsIgnoreCase(
+                interview.getStatus()
+        )) {
+
+            return ResponseEntity.ok(
+                    interview
+            );
+        }
+
+        Map<Long, Answer> latest =
+                latestAnswersByQuestion(
+                        answerRepository
+                                .findByQuestionInterviewId(
+                                        interviewId
+                                )
+                );
+
+        List<Long> questionIds =
+                request == null
+                        ? List.of()
+                        : safeQuestionIds(
+                                request.questionIds()
+                        );
+
+        int totalScore = 0;
+
+        for (Long questionId :
+                questionIds) {
+
+            Answer answer =
+                    latest.get(
+                            questionId
+                    );
+
+            if (answer != null &&
+                    answer.getScore() != null) {
+
+                totalScore +=
+                        answer.getScore();
+            }
+        }
+
+        // Five-question model:
+        // unanswered questions contribute zero.
+        int finalScore =
+                Math.round(
+                        (float) totalScore / 5
+                );
+
+        interview.setFinalScore(
+                finalScore
+        );
+
+        interview.setStatus(
+                "TERMINATED"
+        );
+
+        Interview saved =
+                interviewRepository.save(
+                        interview
+                );
+
+        System.out.println(
+                "INTERVIEW TERMINATED | ID="
+                        + interviewId
+                        + " | REASON="
+                        + (
+                            request == null
+                                    ? "unknown"
+                                    : request.reason()
+                        )
+                        + " | SCORE="
+                        + finalScore
+        );
+
+        return ResponseEntity.ok(
+                saved
+        );
+    }
+
+    private Map<Long, Answer> latestAnswersByQuestion(
+            List<Answer> answers
+    ) {
+
+        return answers
+                .stream()
+                .filter(
+                        Objects::nonNull
+                )
+                .filter(answer ->
+                        answer.getId() != null &&
+
+                        answer.getQuestion() != null &&
+
+                        answer.getQuestion()
+                                .getId() != null
+                )
+                .collect(
+                        Collectors.toMap(
+                                answer ->
+                                        answer.getQuestion()
+                                                .getId(),
+
+                                Function.identity(),
+
+                                (first, second) ->
+                                        first.getId() >
+                                                second.getId()
+                                                ? first
+                                                : second
+                        )
                 );
     }
 
-    private boolean isProcessing(Answer answer) {
+    private List<Long> safeQuestionIds(
+            List<Long> questionIds
+    ) {
 
-        if (answer == null) {
-            return true;
+        if (questionIds == null) {
+            return List.of();
         }
 
-        if (answer.getScore() == null) {
-            return true;
+        return questionIds
+                .stream()
+                .filter(
+                        Objects::nonNull
+                )
+                .distinct()
+                .limit(5)
+                .toList();
+    }
+
+    private User authenticatedUser(
+            Principal principal
+    ) {
+
+        if (principal == null ||
+                principal.getName() == null) {
+
+            return null;
         }
 
-        String feedback =
-                answer.getFeedback();
+        return userRepository
+                .findByEmail(
+                        principal
+                                .getName()
+                                .trim()
+                                .toLowerCase()
+                )
+                .orElse(null);
+    }
 
-        if (feedback == null || feedback.isBlank()) {
-            return true;
-        }
+    private boolean owns(
+            Interview interview,
+            Principal principal
+    ) {
 
-        return feedback.trim().equals(
-                "Answer submitted. AI evaluation is processing."
-        );
+        return principal != null &&
+
+                interview != null &&
+
+                interview.getUser() != null &&
+
+                interview.getUser()
+                        .getEmail() != null &&
+
+                interview.getUser()
+                        .getEmail()
+                        .equalsIgnoreCase(
+                                principal.getName()
+                        );
     }
 
     public record InterviewRequest(
@@ -575,6 +690,11 @@ public class InterviewController {
     ) {}
 
     public record CompleteInterviewRequest(
+            List<Long> questionIds
+    ) {}
+
+    public record TerminateInterviewRequest(
+            String reason,
             List<Long> questionIds
     ) {}
 }

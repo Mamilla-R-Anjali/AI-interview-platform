@@ -1,11 +1,16 @@
 package com.interview.platform.controller;
 
+import com.interview.platform.model.Interview;
 import com.interview.platform.model.Question;
+
 import com.interview.platform.repository.InterviewRepository;
 import com.interview.platform.repository.QuestionRepository;
 
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.web.bind.annotation.*;
+
+import java.security.Principal;
 
 import java.util.List;
 
@@ -14,118 +19,193 @@ import java.util.List;
 public class QuestionController {
 
     private final QuestionRepository questionRepository;
+
     private final InterviewRepository interviewRepository;
 
     public QuestionController(
             QuestionRepository questionRepository,
-            InterviewRepository interviewRepository) {
+            InterviewRepository interviewRepository
+    ) {
 
-        this.questionRepository = questionRepository;
-        this.interviewRepository = interviewRepository;
+        this.questionRepository =
+                questionRepository;
+
+        this.interviewRepository =
+                interviewRepository;
     }
-
-    // ==========================================
-    // CREATE QUESTION
-    // ==========================================
 
     @PostMapping
     public ResponseEntity<?> createQuestion(
-            @RequestBody QuestionRequest request) {
+            @RequestBody QuestionRequest request,
+            Principal principal
+    ) {
 
-        return interviewRepository.findById(request.interviewId())
-                .map(interview -> {
+        Interview interview =
+                interviewRepository
+                        .findById(
+                                request.interviewId()
+                        )
+                        .orElse(null);
 
-                    Question question = new Question(
-                            request.questionText(),
-                            request.expectedAnswer(),
-                            interview
+        if (interview == null) {
+
+            return ResponseEntity
+                    .notFound()
+                    .build();
+        }
+
+        if (!owns(
+                interview,
+                principal
+        )) {
+
+            return ResponseEntity
+                    .status(403)
+                    .body(
+                            "Forbidden"
                     );
+        }
 
-                    return ResponseEntity.ok(
-                            questionRepository.save(question)
-                    );
-                })
-                .orElse(ResponseEntity.notFound().build());
+        Question question =
+                new Question(
+                        request.questionText(),
+                        request.expectedAnswer(),
+                        interview
+                );
+
+        return ResponseEntity.ok(
+                questionRepository.save(
+                        question
+                )
+        );
     }
-
-    // ==========================================
-    // GET 10 PRACTICE QUESTIONS
-    // ==========================================
 
     @GetMapping
     public List<Question> getPracticeQuestions() {
 
-        return questionRepository.findAll()
+        return questionRepository
+                .findAll()
                 .stream()
                 .limit(10)
                 .toList();
     }
 
-    // ==========================================
-    // GET ALL QUESTIONS FOR AN INTERVIEW
-    // ==========================================
-
     @GetMapping("/interview/{interviewId}")
-    public List<Question> getQuestionsByInterview(
-            @PathVariable Long interviewId) {
+    public ResponseEntity<?> getQuestionsByInterview(
+            @PathVariable Long interviewId,
+            Principal principal
+    ) {
 
-        return questionRepository.findByInterviewId(interviewId);
+        Interview interview =
+                interviewRepository
+                        .findById(
+                                interviewId
+                        )
+                        .orElse(null);
+
+        if (interview == null) {
+
+            return ResponseEntity
+                    .notFound()
+                    .build();
+        }
+
+        if (!owns(
+                interview,
+                principal
+        )) {
+
+            return ResponseEntity
+                    .status(403)
+                    .body(
+                            "Forbidden"
+                    );
+        }
+
+        return ResponseEntity.ok(
+                questionRepository
+                        .findByInterviewId(
+                                interviewId
+                        )
+        );
     }
-
-    // ==========================================
-    // GET 5 RANDOM INTERVIEW QUESTIONS
-    // ==========================================
 
     @GetMapping("/interview/{interviewId}/random")
     public ResponseEntity<?> getRandomQuestions(
-            @PathVariable Long interviewId) {
+            @PathVariable Long interviewId,
+            Principal principal
+    ) {
 
-        if (!interviewRepository.existsById(interviewId)) {
-            return ResponseEntity.notFound().build();
+        Interview interview =
+                interviewRepository
+                        .findById(
+                                interviewId
+                        )
+                        .orElse(null);
+
+        if (interview == null) {
+
+            return ResponseEntity
+                    .notFound()
+                    .build();
+        }
+
+        if (!owns(
+                interview,
+                principal
+        )) {
+
+            return ResponseEntity
+                    .status(403)
+                    .body(
+                            "Forbidden"
+                    );
         }
 
         List<Question> questions =
-                questionRepository.findRandomQuestionsByInterviewId(
-                        interviewId
-                );
+                questionRepository
+                        .findRandomQuestionsByInterviewId(
+                                interviewId
+                        );
 
-        // IMPORTANT:
-        // Live Interview must contain ONLY 5 questions.
         if (questions.size() > 5) {
-            questions = questions.subList(0, 5);
+
+            questions =
+                    questions.subList(
+                            0,
+                            5
+                    );
         }
 
-        System.out.println(
-                "========================================"
+        return ResponseEntity.ok(
+                questions
         );
-
-        System.out.println(
-                "LIVE INTERVIEW QUESTIONS"
-        );
-
-        System.out.println(
-                "Interview ID: " + interviewId
-        );
-
-        System.out.println(
-                "Questions returned: " + questions.size()
-        );
-
-        System.out.println(
-                "========================================"
-        );
-
-        return ResponseEntity.ok(questions);
     }
 
-    // ==========================================
-    // REQUEST BODY
-    // ==========================================
+    private boolean owns(
+            Interview interview,
+            Principal principal
+    ) {
+
+        return principal != null &&
+
+                interview != null &&
+
+                interview.getUser() != null &&
+
+                interview.getUser()
+                        .getEmail() != null &&
+
+                interview.getUser()
+                        .getEmail()
+                        .equalsIgnoreCase(
+                                principal.getName()
+                        );
+    }
 
     public record QuestionRequest(
             String questionText,
             String expectedAnswer,
             Long interviewId
-    ) {
-    }
+    ) {}
 }

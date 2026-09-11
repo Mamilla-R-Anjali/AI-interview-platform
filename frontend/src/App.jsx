@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API_URL = "https://ai-interview-platform-production-a755.up.railway.app";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 const authInputStyle = {
   width: "100%",
@@ -53,7 +53,7 @@ function App() {
   // =========================================================
 
   const [isLoggedIn, setIsLoggedIn] = useState(
-    Boolean(localStorage.getItem("userId"))
+    Boolean(localStorage.getItem("userId") && localStorage.getItem("token"))
   );
 
   const [authMode, setAuthMode] = useState("login");
@@ -173,7 +173,7 @@ function App() {
               password: authPassword,
             };
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}${endpoint}`,
         {
           method: "POST",
@@ -205,6 +205,14 @@ function App() {
           "Login succeeded but user ID was not returned by the backend."
         );
       }
+
+      if (!data.token) {
+        throw new Error(
+          "Authentication succeeded but JWT token was not returned by the backend."
+        );
+      }
+
+      localStorage.setItem("token", data.token);
 
       localStorage.setItem(
         "userId",
@@ -245,6 +253,7 @@ function App() {
   // =========================================================
 
   const handleLogout = () => {
+    localStorage.removeItem("token");
     localStorage.removeItem("userId");
     localStorage.removeItem("userName");
     localStorage.removeItem("userEmail");
@@ -371,7 +380,7 @@ function App() {
         // LOAD ONLY THIS USER'S INTERVIEWS
         // =====================================================
 
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_URL}/api/interviews?userId=${encodeURIComponent(
             userId
           )}`
@@ -397,7 +406,7 @@ function App() {
         // LOAD 10 PRACTICE QUESTIONS INDEPENDENTLY
         // =====================================================
 
-        const questionResponse = await fetch(
+        const questionResponse = await apiFetch(
           `${API_URL}/api/questions`
         );
 
@@ -460,7 +469,7 @@ function App() {
         return null;
       }
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/api/interviews?userId=${encodeURIComponent(
           userId
         )}`
@@ -497,6 +506,27 @@ function App() {
   };
 
   // =========================================================
+  // AUTHENTICATED API REQUEST
+  // =========================================================
+
+  const apiFetch = (url, options = {}) => {
+    const token = localStorage.getItem("token");
+
+    const headers = {
+      ...(options.headers || {}),
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return window.fetch(url, {
+      ...options,
+      headers,
+    });
+  };
+
+  // =========================================================
   // START EXISTING INTERVIEW
   // =========================================================
 
@@ -515,7 +545,7 @@ function App() {
         id = interviews[0].id;
       }
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/api/questions/interview/${id}`
       );
 
@@ -611,7 +641,7 @@ function App() {
         userId
       );
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/api/interviews`,
         {
           method: "POST",
@@ -679,7 +709,7 @@ function App() {
     }
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/api/interviews/${interviewId}`,
         {
           method: "DELETE",
@@ -735,7 +765,7 @@ function App() {
       const refreshedInterviews =
         await refreshInterviews();
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/api/interviews/${interviewId}/results`
       );
 
@@ -831,7 +861,7 @@ function App() {
         currentQuestion.id
       );
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/api/answers`,
         {
           method: "POST",
@@ -915,7 +945,7 @@ function App() {
         );
 
         const completeResponse =
-          await fetch(
+          await apiFetch(
             `${API_URL}/api/interviews/${currentInterviewId}/complete`,
             {
               method: "POST",
@@ -1075,7 +1105,114 @@ function App() {
     return `🔴 Below 40 — Needs Significant Improvement`;
   };
 
+  
   // =========================================================
+  // TERMINATE ACTIVE INTERVIEW
+  // =========================================================
+
+  const terminateInterview = async (reason = "exit") => {
+    if (!currentInterviewId) {
+      setStarted(false);
+      return;
+    }
+
+    const questionIds =
+      interviewQuestions
+        .slice(0, 5)
+        .map((question) => question.id);
+
+    try {
+      console.log("TERMINATE REQUEST", {
+        reason,
+        interviewId: currentInterviewId,
+        questionIds,
+      });
+
+      const response = await apiFetch(
+        `${API_URL}/api/interviews/${currentInterviewId}/terminate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            reason,
+            questionIds,
+          }),
+        }
+      );
+
+      console.log(
+        "TERMINATE RESPONSE",
+        response.status
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+
+        throw new Error(
+          `Termination failed. HTTP ${response.status}: ${text}`
+        );
+      }
+
+      await refreshInterviews();
+
+    } catch (err) {
+      console.error(
+        "Interview termination error:",
+        err
+      );
+    }
+
+    setStarted(false);
+    setCompleted(false);
+    setViewingResults(false);
+
+    setCurrentInterviewId(null);
+    setInterviewQuestions([]);
+    setCurrentQuestionIndex(0);
+
+    setAnswer("");
+    setScores([]);
+    setEvaluations([]);
+  };
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (
+        document.hidden &&
+        started &&
+        currentInterviewId &&
+        !completed
+      ) {
+        console.log(
+          "INTERVIEW PAGE HIDDEN - TERMINATING"
+        );
+
+        terminateInterview(
+          "tab-switch"
+        );
+      }
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange
+    );
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+    };
+  }, [
+    started,
+    currentInterviewId,
+    completed,
+    interviewQuestions,
+  ]);
+// =========================================================
   // RESET
   // =========================================================
 
@@ -1625,8 +1762,8 @@ function App() {
                 className="primary-button"
                 onClick={resetInterview}
               >
-                Back to Dashboard
-              </button>
+              Exit Interview
+            </button>
             </section>
           </main>
         </div>
@@ -1645,11 +1782,9 @@ function App() {
 
             <button
               className="profile"
-              onClick={() =>
-                setStarted(false)
-              }
+              onClick={() => terminateInterview("exit")}
             >
-              Back to Dashboard
+              Exit Interview
             </button>
           </div>
         </header>
@@ -1668,6 +1803,16 @@ function App() {
               Answer the question below as
               you would in a real interview.
             </p>
+
+            <div className="interview-rules">
+              <strong>Interview Rules</strong>
+
+              <p>
+                Answer each question in your own words.
+                Copying and pasting is not allowed.
+                Switching away from the interview tab will terminate the attempt.
+              </p>
+            </div>
 
             <div className="question-card">
               <div className="question-number">
@@ -1694,6 +1839,13 @@ function App() {
                   placeholder="Type your answer here..."
                   rows="8"
                   disabled={submitting}
+                  onPaste={(event) => {
+                    event.preventDefault();
+
+                    alert(
+                      "Pasting is not allowed during the interview. Please answer in your own words."
+                    );
+                  }}
                 />
 
                 <br />
@@ -1876,7 +2028,7 @@ function App() {
               <>
                 <div className="card-line">
                   <span>
-                    Final Score
+                    Latest Score
                   </span>
 
                   <strong>
@@ -2015,9 +2167,7 @@ function App() {
                     <button
                       className="open-button"
                       onClick={() =>
-                        interview.status ===
-                        "COMPLETED"
-                          ? viewInterviewResults(
+                        (interview.status === "COMPLETED" || interview.status === "TERMINATED") ? viewInterviewResults(
                               interview.id
                             )
                           : startInterview(
@@ -2025,9 +2175,7 @@ function App() {
                             )
                       }
                     >
-                      {interview.status ===
-                      "COMPLETED"
-                        ? "View Results →"
+                      {(interview.status === "COMPLETED" || interview.status === "TERMINATED") ? "View Results →"
                         : "Open Interview →"}
                     </button>
 

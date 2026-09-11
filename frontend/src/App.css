@@ -2047,3 +2047,73 @@ html[data-theme="light"] .score-significant-improvement {
     flex-wrap: wrap;
   }
 }
+/* FINAL INTERVIEW CARD SCORE FIX */
+
+.interview-info.interview-score-info {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  grid-template-rows: auto auto !important;
+  align-items: center !important;
+  column-gap: 16px !important;
+  row-gap: 12px !important;
+}
+
+.interview-info.interview-score-info > span {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  white-space: nowrap !important;
+}
+
+.interview-info.interview-score-info .interview-score-value {
+  display: contents !important;
+}
+
+.interview-info.interview-score-info .interview-score-value > strong {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  justify-self: end !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  line-height: 1.3 !important;
+}
+
+.interview-info.interview-score-info .interview-score-value .score-badge-small {
+  grid-column: 1 / -1 !important;
+  grid-row: 2 !important;
+  justify-self: center !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 8px 14px !important;
+  line-height: 1.35 !important;
+  text-align: center !important;
+  white-space: normal !important;
+}
+
+@media (max-width: 640px) {
+  .interview-info.interview-score-info {
+    grid-template-columns: 1fr auto !important;
+  }
+
+  .interview-info.interview-score-info .interview-score-value .score-badge-small {
+    justify-self: start !important;
+  }
+}
+/* FINAL INTERVIEW RULES */
+
+.interview-rules {
+  margin: 20px 0;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(128, 128, 128, 0.25);
+}
+
+.interview-rules strong {
+  display: block;
+  margin-bottom: 7px;
+}
+
+.interview-rules p {
+  margin: 0;
+  line-height: 1.6;
+}

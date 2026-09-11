@@ -23,6 +23,27 @@ public class AIService {
             Question question,
             String answerText
     ) {
+        String initialQuestionText =
+                question != null &&
+                question.getQuestionText() != null
+                        ? question.getQuestionText()
+                        : "";
+
+        String initialCandidateAnswer =
+                answerText != null
+                        ? answerText
+                        : "";
+
+        EvaluationResult validationResult =
+                validateCandidateAnswer(
+                        initialQuestionText,
+                        initialCandidateAnswer
+                );
+
+        if (validationResult != null) {
+            return validationResult;
+        }
+
 
         if (apiKey == null || apiKey.isBlank()) {
             System.out.println("Gemini API key not configured. Using fallback.");
@@ -56,7 +77,10 @@ public class AIService {
                     "\n\nCandidate Answer:\n" +
                     candidateAnswer +
                     "\n\n" +
-                    "Give a score from 0 to 100.\n" +
+                    "Give a score from 0 to 100 based mainly on technical correctness and concept coverage.\n" +
+                    "If the candidate only repeats or closely paraphrases the question, score 0.\n" +
+                    "Do not award marks merely because words from the question appear in the answer.\n" +
+                    "Meaningless or unrelated answers should receive 0 to 5.\n" +
                     "Give short useful feedback.\n\n" +
                     "Return ONLY this format:\n" +
                     "SCORE: number\n" +
@@ -174,6 +198,136 @@ public class AIService {
     // =========================================================
     // FALLBACK EVALUATION
     // =========================================================
+
+    // =========================================================
+    // DETERMINISTIC ANSWER VALIDATION
+    // =========================================================
+
+    private EvaluationResult validateCandidateAnswer(
+            String questionText,
+            String answerText
+    ) {
+
+        if (answerText == null ||
+                answerText.trim().isEmpty()) {
+
+            return new EvaluationResult(
+                    0,
+                    "No answer was provided."
+            );
+        }
+
+        String normalizedQuestion =
+                normalizeText(
+                        questionText
+                );
+
+        String normalizedAnswer =
+                normalizeText(
+                        answerText
+                );
+
+        if (!normalizedQuestion.isBlank() &&
+                normalizedAnswer.equals(
+                        normalizedQuestion
+                )) {
+
+            return new EvaluationResult(
+                    0,
+                    "The response only repeats the interview question. Explain the concept in your own words."
+            );
+        }
+
+        if (!normalizedQuestion.isBlank() &&
+                isMostlyQuestionRepetition(
+                        normalizedQuestion,
+                        normalizedAnswer
+                )) {
+
+            return new EvaluationResult(
+                    0,
+                    "The response mostly repeats the interview question instead of answering it."
+            );
+        }
+
+        return null;
+    }
+
+    private boolean isMostlyQuestionRepetition(
+            String question,
+            String answer
+    ) {
+
+        String[] questionWords =
+                question.split("\\s+");
+
+        String[] answerWords =
+                answer.split("\\s+");
+
+        if (questionWords.length < 3 ||
+                answerWords.length < 3) {
+
+            return false;
+        }
+
+        int meaningful = 0;
+        int matches = 0;
+
+        for (String answerWord :
+                answerWords) {
+
+            if (answerWord.length() < 3) {
+                continue;
+            }
+
+            meaningful++;
+
+            for (String questionWord :
+                    questionWords) {
+
+                if (answerWord.equals(
+                        questionWord
+                )) {
+
+                    matches++;
+                    break;
+                }
+            }
+        }
+
+        if (meaningful == 0) {
+            return false;
+        }
+
+        double overlap =
+                (double) matches /
+                        meaningful;
+
+        return overlap >= 0.85 &&
+                answerWords.length <=
+                        questionWords.length + 3;
+    }
+
+    private String normalizeText(
+            String value
+    ) {
+
+        if (value == null) {
+            return "";
+        }
+
+        return value
+                .toLowerCase()
+                .replaceAll(
+                        "[^a-z0-9\\s]",
+                        " "
+                )
+                .replaceAll(
+                        "\\s+",
+                        " "
+                )
+                .trim();
+    }
 
     private EvaluationResult fallbackEvaluation(
             Question question,

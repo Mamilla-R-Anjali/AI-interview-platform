@@ -1,112 +1,237 @@
 package com.interview.platform.controller;
 
 import com.interview.platform.model.User;
+
 import com.interview.platform.repository.UserRepository;
 
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import com.interview.platform.security.JwtService;
 
-import java.util.Map;
-import java.util.Optional;
+import org.springframework.http.ResponseEntity;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import org.springframework.web.bind.annotation.*;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Optional;
+
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = {
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "http://localhost:5176",
-    "https://lively-fenglisu-415bea.netlify.app"
-})
 public class AuthController {
 
     private final UserRepository userRepository;
+
     private final BCryptPasswordEncoder passwordEncoder;
 
-    public AuthController(UserRepository userRepository) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = new BCryptPasswordEncoder();
+    private final JwtService jwtService;
+
+    public AuthController(
+            UserRepository userRepository,
+            JwtService jwtService
+    ) {
+
+        this.userRepository =
+                userRepository;
+
+        this.jwtService =
+                jwtService;
+
+        this.passwordEncoder =
+                new BCryptPasswordEncoder();
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(
+            @RequestBody RegisterRequest request
+    ) {
 
-        if (request.name() == null || request.name().isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", "Name is required"));
+        if (request.name() == null ||
+                request.name().isBlank()) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Name is required"
+                            )
+                    );
         }
 
-        if (request.email() == null || request.email().isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", "Email is required"));
+        if (request.email() == null ||
+                request.email().isBlank()) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Email is required"
+                            )
+                    );
         }
 
-        if (request.password() == null || request.password().length() < 6) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", "Password must be at least 6 characters"));
+        if (request.password() == null ||
+                request.password().length() < 6) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Password must be at least 6 characters"
+                            )
+                    );
         }
 
-        String email = request.email().trim().toLowerCase();
+        String email =
+                request.email()
+                        .trim()
+                        .toLowerCase();
 
-        Optional<User> existingUser = userRepository.findByEmail(email);
+        Optional<User> existing =
+                userRepository.findByEmail(
+                        email
+                );
 
-        if (existingUser.isPresent()) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", "Email already registered"));
+        if (existing.isPresent()) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Email already registered"
+                            )
+                    );
         }
 
-        User user = new User(
-                request.name().trim(),
-                email,
-                passwordEncoder.encode(request.password())
+        User user =
+                new User(
+                        request.name().trim(),
+                        email,
+                        passwordEncoder.encode(
+                                request.password()
+                        )
+                );
+
+        User saved =
+                userRepository.save(
+                        user
+                );
+
+        return authenticatedResponse(
+                "Registration successful",
+                saved
         );
-
-        User savedUser = userRepository.save(user);
-
-        return ResponseEntity.ok(Map.of(
-                "message", "Registration successful",
-                "userId", savedUser.getId(),
-                "name", savedUser.getName(),
-                "email", savedUser.getEmail()
-        ));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(
+            @RequestBody LoginRequest request
+    ) {
 
-        if (request.email() == null || request.email().isBlank()
-                || request.password() == null || request.password().isBlank()) {
+        if (request.email() == null ||
+                request.email().isBlank() ||
+                request.password() == null ||
+                request.password().isBlank()) {
 
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", "Email and password are required"));
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Email and password are required"
+                            )
+                    );
         }
 
-        String email = request.email().trim().toLowerCase();
+        String email =
+                request.email()
+                        .trim()
+                        .toLowerCase();
 
-        Optional<User> optionalUser = userRepository.findByEmail(email);
+        Optional<User> optionalUser =
+                userRepository.findByEmail(
+                        email
+                );
 
         if (optionalUser.isEmpty()) {
-            return ResponseEntity.status(401)
-                    .body(Map.of("message", "Invalid email or password"));
+
+            return ResponseEntity
+                    .status(401)
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Invalid email or password"
+                            )
+                    );
         }
 
-        User user = optionalUser.get();
+        User user =
+                optionalUser.get();
 
-        if (user.getPassword() == null
-                || !passwordEncoder.matches(request.password(), user.getPassword())) {
+        if (user.getPassword() == null ||
+                !passwordEncoder.matches(
+                        request.password(),
+                        user.getPassword()
+                )) {
 
-            return ResponseEntity.status(401)
-                    .body(Map.of("message", "Invalid email or password"));
+            return ResponseEntity
+                    .status(401)
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Invalid email or password"
+                            )
+                    );
         }
 
-        return ResponseEntity.ok(Map.of(
-                "message", "Login successful",
-                "userId", user.getId(),
-                "name", user.getName(),
-                "email", user.getEmail()
-        ));
+        return authenticatedResponse(
+                "Login successful",
+                user
+        );
+    }
+
+    private ResponseEntity<?> authenticatedResponse(
+            String message,
+            User user
+    ) {
+
+        Map<String, Object> response =
+                new LinkedHashMap<>();
+
+        response.put(
+                "message",
+                message
+        );
+
+        response.put(
+                "userId",
+                user.getId()
+        );
+
+        response.put(
+                "name",
+                user.getName()
+        );
+
+        response.put(
+                "email",
+                user.getEmail()
+        );
+
+        response.put(
+                "token",
+                jwtService.generateToken(
+                        user.getEmail()
+                )
+        );
+
+        return ResponseEntity.ok(
+                response
+        );
     }
 
     public record RegisterRequest(

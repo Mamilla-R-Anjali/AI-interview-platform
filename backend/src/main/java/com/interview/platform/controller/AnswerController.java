@@ -1,71 +1,92 @@
-
 package com.interview.platform.controller;
 
 import com.interview.platform.model.Answer;
 import com.interview.platform.model.Question;
+
 import com.interview.platform.repository.AnswerRepository;
 import com.interview.platform.repository.QuestionRepository;
-import com.interview.platform.repository.InterviewRepository;
+
 import com.interview.platform.service.AIService;
 
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.web.bind.annotation.*;
+
+import java.security.Principal;
 
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/answers")
-@CrossOrigin(origins = {
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "http://localhost:5176",
-    "https://lively-fenglisu-415bea.netlify.app"
-})
 public class AnswerController {
 
     private final AnswerRepository answerRepository;
+
     private final QuestionRepository questionRepository;
-    private final InterviewRepository interviewRepository;
+
     private final AIService aiService;
 
     public AnswerController(
             AnswerRepository answerRepository,
             QuestionRepository questionRepository,
-            InterviewRepository interviewRepository,
             AIService aiService
     ) {
-        this.answerRepository = answerRepository;
-        this.questionRepository = questionRepository;
-        this.interviewRepository = interviewRepository;
-        this.aiService = aiService;
-    }
 
-    // =========================================================
-    // SUBMIT ANSWER
-    // =========================================================
+        this.answerRepository =
+                answerRepository;
+
+        this.questionRepository =
+                questionRepository;
+
+        this.aiService =
+                aiService;
+    }
 
     @PostMapping
     public ResponseEntity<?> submitAnswer(
-            @RequestBody Map<String, Object> request
+            @RequestBody Map<String, Object> request,
+            Principal principal
     ) {
 
         try {
 
+            Object rawQuestionId =
+                    request.get(
+                            "questionId"
+                    );
+
+            if (rawQuestionId == null) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                Map.of(
+                                        "error",
+                                        "Question ID is required"
+                                )
+                        );
+            }
+
             Long questionId =
                     Long.valueOf(
-                            request.get("questionId").toString()
+                            rawQuestionId.toString()
                     );
 
             String answerText =
-                    request.get("answerText") != null
-                            ? request.get("answerText").toString()
+                    request.get(
+                            "answerText"
+                    ) != null
+                            ? request.get(
+                                    "answerText"
+                            ).toString()
                             : "";
 
             Question question =
                     questionRepository
-                            .findById(questionId)
+                            .findById(
+                                    questionId
+                            )
                             .orElse(null);
 
             if (question == null) {
@@ -80,65 +101,55 @@ public class AnswerController {
                         );
             }
 
-            // =================================================
-            // AI EVALUATION
-            // =================================================
+            if (!ownsQuestion(
+                    question,
+                    principal
+            )) {
+
+                return ResponseEntity
+                        .status(403)
+                        .body(
+                                Map.of(
+                                        "error",
+                                        "Forbidden"
+                                )
+                        );
+            }
 
             AIService.EvaluationResult evaluation =
-                        aiService.evaluateAnswer(question, answerText);
-
-            int score =
-                    evaluation.getScore();
-
-            String feedback =
-                    evaluation.getFeedback();
-
-            // =================================================
-            // SAVE ANSWER
-            // =================================================
+                    aiService.evaluateAnswer(
+                            question,
+                            answerText
+                    );
 
             Answer answer =
                     new Answer();
 
-            answer.setAnswerText(answerText);
-            answer.setScore(score);
-            answer.setFeedback(feedback);
-            answer.setQuestion(question);
-
-            Answer savedAnswer =
-                    answerRepository.save(answer);
-
-            System.out.println(
-                    "========================================"
+            answer.setAnswerText(
+                    answerText
             );
 
-            System.out.println(
-                    "ANSWER SUBMITTED"
+            answer.setScore(
+                    evaluation.getScore()
             );
 
-            System.out.println(
-                    "Question ID: " +
-                            questionId
+            answer.setFeedback(
+                    evaluation.getFeedback()
             );
 
-            System.out.println(
-                    "Score: " +
-                            score
+            answer.setQuestion(
+                    question
             );
 
-            System.out.println(
-                    "Feedback: " +
-                            feedback
-            );
-
-            System.out.println(
-                    "========================================"
-            );
+            Answer saved =
+                    answerRepository.save(
+                            answer
+                    );
 
             return ResponseEntity.ok(
                     Map.of(
                             "id",
-                            savedAnswer.getId(),
+                            saved.getId(),
 
                             "questionId",
                             questionId,
@@ -147,10 +158,10 @@ public class AnswerController {
                             answerText,
 
                             "score",
-                            score,
+                            evaluation.getScore(),
 
                             "feedback",
-                            feedback
+                            evaluation.getFeedback()
                     )
             );
 
@@ -171,35 +182,72 @@ public class AnswerController {
         }
     }
 
-    // =========================================================
-    // GET ANSWERS FOR A QUESTION
-    // =========================================================
-
     @GetMapping("/question/{questionId}")
     public ResponseEntity<?> getAnswersForQuestion(
-            @PathVariable Long questionId
+            @PathVariable Long questionId,
+            Principal principal
     ) {
 
-        try {
+        Question question =
+                questionRepository
+                        .findById(
+                                questionId
+                        )
+                        .orElse(null);
 
-            List<Answer> answers =
-                    answerRepository
-                            .findByQuestionId(questionId);
-
-            return ResponseEntity.ok(answers);
-
-        } catch (Exception e) {
-
-            e.printStackTrace();
+        if (question == null) {
 
             return ResponseEntity
-                    .internalServerError()
+                    .notFound()
+                    .build();
+        }
+
+        if (!ownsQuestion(
+                question,
+                principal
+        )) {
+
+            return ResponseEntity
+                    .status(403)
                     .body(
-                            Map.of(
-                                    "error",
-                                    "Failed to fetch answers"
-                            )
+                            "Forbidden"
                     );
         }
+
+        List<Answer> answers =
+                answerRepository
+                        .findByQuestionId(
+                                questionId
+                        );
+
+        return ResponseEntity.ok(
+                answers
+        );
+    }
+
+    private boolean ownsQuestion(
+            Question question,
+            Principal principal
+    ) {
+
+        return principal != null &&
+
+                question != null &&
+
+                question.getInterview() != null &&
+
+                question.getInterview()
+                        .getUser() != null &&
+
+                question.getInterview()
+                        .getUser()
+                        .getEmail() != null &&
+
+                question.getInterview()
+                        .getUser()
+                        .getEmail()
+                        .equalsIgnoreCase(
+                                principal.getName()
+                        );
     }
 }
