@@ -1091,18 +1091,18 @@ function App() {
     const numericScore = Number(score) || 0;
 
     if (numericScore >= 80) {
-      return `ðŸŸ¢ ${numericScore}/100 â€” Excellent`;
+      return `\u{1F7E2} ${numericScore}/100 \u2014 Excellent`;
     }
 
     if (numericScore >= 60) {
-      return `ðŸ”µ ${numericScore}/100 â€” Good`;
+      return `\u{1F535} ${numericScore}/100 \u2014 Good`;
     }
 
     if (numericScore >= 40) {
-      return `ðŸŸ  ${numericScore}/100 â€” Needs Improvement`;
+      return `\u{1F7E0} ${numericScore}/100 \u2014 Needs Improvement`;
     }
 
-    return `ðŸ”´ Below 40 â€” Needs Significant Improvement`;
+    return `\u{1F534} Below 40 \u2014 Needs Significant Improvement`;
   };
 
   
@@ -1425,7 +1425,7 @@ function App() {
             </p>
 
             <h1>
-              Great job! ðŸŽ‰
+              Great job! {"\u{1F389}"}
             </h1>
 
             <p className="hero-text">
@@ -1594,7 +1594,7 @@ function App() {
             </p>
 
             <div className="results-date">
-              ðŸ•{" "}
+              {"\u{1F550} "}
               {formatDateTime(interview)}
             </div>
 
@@ -1823,7 +1823,7 @@ function App() {
                     ? "Submitting..."
                     : currentQuestionIndex + 1 >= 5
                     ? "Submit Final Answer"
-                    : "Submit Answer â†’"}
+                    : "Submit Answer \u2192"}
                 </button>
               </div>
             </div>
@@ -1932,7 +1932,7 @@ function App() {
           >
             {localStorage.getItem("userName") ||
               "User"}{" "}
-            Â· Logout
+            {"\u00B7"} Logout
           </button>
         </div>
       </header>
@@ -2014,7 +2014,7 @@ function App() {
               <strong>
                 {lastCompletedInterview
                   ? `${lastCompletedInterview.finalScore} / 100`
-                  : "Ã¢â‚¬â€"}
+                  : "-"}
               </strong>
             </div>
 
@@ -2092,7 +2092,7 @@ function App() {
                     </p>
 
                     <div className="interview-date">
-                      ðŸ•{" "}
+                      {"\u{1F550} "}
                       {formatDateTime(
                         interview
                       )}
@@ -2142,8 +2142,8 @@ function App() {
                             )
                       }
                     >
-                      {(interview.status === "COMPLETED" || interview.status === "TERMINATED") ? "View Results â†’"
-                        : "Open Interview â†’"}
+                      {(interview.status === "COMPLETED" || interview.status === "TERMINATED") ? "View Results \u2192"
+                        : "Open Interview \u2192"}
                     </button>
 
                     <button
@@ -2154,7 +2154,7 @@ function App() {
                         )
                       }
                     >
-                      ðŸ—‘ï¸ Delete
+                      {"\u{1F5D1}\uFE0F Delete"}
                     </button>
                   </div>
                 )
